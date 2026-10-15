@@ -2739,6 +2739,14 @@ void MVKPhysicalDevice::initMetalFeatures() {
 
 	_isUsingMetalArgumentBuffers = _metalFeatures.descriptorSetArgumentBuffers && getMVKConfig().useMetalArgumentBuffers;
 
+	// GPU-encoded indirect command buffers for vkCmdDraw[Indexed]IndirectCount() pass the ICB to the encoding
+	// kernel as a gpuResourceID, and require all shader textures and samplers to be in argument buffers.
+	_canUseICBForDrawIndirectCount = (getMVKConfig().useICBForDrawIndirectCount &&
+									  _gpuCapabilities.isAppleGPU &&
+									  supportsMTLGPUFamily(Metal3) &&
+									  mvkOSVersionIsAtLeast(13.0, 16.0, 1.0) &&
+									  _isUsingMetalArgumentBuffers);
+
 #define checkSupportsMTLCounterSamplingPoint(mtlSP, mvkSP)  \
 	if ([_mtlDevice supportsCounterSampling: MTLCounterSamplingPointAt ##mtlSP ##Boundary]) {  \
 		_metalFeatures.counterSamplingPoints |= MVK_COUNTER_SAMPLING_AT_ ##mvkSP;  \
@@ -5575,6 +5583,37 @@ void MVKDevice::reservePrivateData(const VkDeviceCreateInfo* pCreateInfo) {
 	}
 }
 
+id<MTLIndirectCommandBuffer> MVKDevice::acquireIndirectCommandBuffer(uint32_t minCommandCount) {
+	// Pool by power-of-two capacity, so buffers are reusable across similar maxDrawCount values.
+	NSUInteger capacity = std::max<NSUInteger>(mvkEnsurePowerOfTwo<NSUInteger>(minCommandCount), 64);
+	{
+		std::lock_guard<std::mutex> lock(_indirectCommandBufferLock);
+		for (size_t i = 0; i < _indirectCommandBufferPool.size(); i++) {
+			id<MTLIndirectCommandBuffer> icb = _indirectCommandBufferPool[i];
+			if (icb.size == capacity) {
+				_indirectCommandBufferPool.erase(_indirectCommandBufferPool.begin() + i);
+				return icb;
+			}
+		}
+	}
+	@autoreleasepool {
+		MTLIndirectCommandBufferDescriptor* icbDesc = [[MTLIndirectCommandBufferDescriptor new] autorelease];
+		icbDesc.commandTypes = MTLIndirectCommandTypeDraw | MTLIndirectCommandTypeDrawIndexed;
+		icbDesc.inheritPipelineState = YES;
+		icbDesc.inheritBuffers = YES;
+		id<MTLIndirectCommandBuffer> icb = [_physicalDevice->getMTLDevice() newIndirectCommandBufferWithDescriptor: icbDesc
+																			 maxCommandCount: capacity
+																					 options: MTLResourceStorageModePrivate];	// retained
+		setMetalObjectLabel(icb, @"vkCmdDrawIndirectCount ICB");
+		return icb;
+	}
+}
+
+void MVKDevice::returnIndirectCommandBuffer(id<MTLIndirectCommandBuffer> icb) {
+	std::lock_guard<std::mutex> lock(_indirectCommandBufferLock);
+	_indirectCommandBufferPool.push_back(icb);
+}
+
 MVKDevice::~MVKDevice() {
 	if (_isPerformanceTracking) {
 		auto perfLogStyle = getMVKConfig().activityPerformanceLoggingStyle;
@@ -5595,6 +5634,8 @@ MVKDevice::~MVKDevice() {
 	if (_commandResourceFactory) { _commandResourceFactory->destroy(); }
 
 	for (auto &fences: _barrierFences) for (auto fence: fences) [fence release];
+
+	for (auto icb : _indirectCommandBufferPool) { [icb release]; }
 
 #if MVK_XCODE_16
 	[_residencySet release];

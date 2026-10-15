@@ -426,6 +426,9 @@ public:
 	/** Returns whether argument buffers are in use. */
 	bool isUsingMetalArgumentBuffers() const { return _isUsingMetalArgumentBuffers; }
 
+	/** Returns whether vkCmdDraw[Indexed]IndirectCount() may be encoded into Metal indirect command buffers on the GPU. */
+	bool canUseICBForDrawIndirectCount() const { return _canUseICBForDrawIndirectCount; }
+
 	/** Returns whether or not vertex instancing can be used to implement multiview. */
 	bool canUseInstancingForMultiview() { return _metalFeatures.layeredRendering; }
 
@@ -529,6 +532,7 @@ protected:
 	MVKPhysicalDeviceArgumentBufferSizes _argumentBufferSizes;
 	bool _hasUnifiedMemory = true;
 	bool _isUsingMetalArgumentBuffers = true;
+	bool _canUseICBForDrawIndirectCount = false;
 };
 
 
@@ -1019,6 +1023,16 @@ public:
 #endif
 	}
 
+	/**
+	 * Returns a retained indirect command buffer, for GPU-encoded draws, that can hold at least
+	 * the specified number of commands. Return it with returnIndirectCommandBuffer() once the
+	 * GPU has finished with it.
+	 */
+	id<MTLIndirectCommandBuffer> acquireIndirectCommandBuffer(uint32_t minCommandCount);
+
+	/** Returns an indirect command buffer acquired with acquireIndirectCommandBuffer() to the pool. */
+	void returnIndirectCommandBuffer(id<MTLIndirectCommandBuffer> icb);
+
 #pragma mark Construction
 
 	/** Constructs an instance on the specified physical device. */
@@ -1103,6 +1117,8 @@ protected:
 	MVKSmallVector<MVKSemaphoreImpl*> _awaitingSemaphores;
 	MVKSmallVector<std::pair<MVKTimelineSemaphore*, uint64_t>> _awaitingTimelineSem4s;
 	MVKSmallVector<MVKVisibilityBuffer> _visibilityBuffers;
+	MVKSmallVector<id<MTLIndirectCommandBuffer>> _indirectCommandBufferPool;
+	std::mutex _indirectCommandBufferLock;
 	MVKLiveResourceSet _liveResources;
 	std::mutex _rezLock;
 	std::mutex _sem4Lock;

@@ -365,6 +365,9 @@ public:
 	id<MTLComputePipelineState> newCmdDrawIndirectCountConvertBuffersMTLComputePipelineState(bool indexed,
 																				 MVKVulkanAPIDeviceObject* owner);
 
+	/** Returns a new MTLComputePipelineState for encoding indirect draw count draws into a Metal indirect command buffer. */
+	id<MTLComputePipelineState> newCmdDrawIndirectCountEncodeICBMTLComputePipelineState(MVKVulkanAPIDeviceObject* owner);
+
 	/** Returns a new MTLComputePipelineState for copying zero-divisor vertex data for an indirect draw. */
 	id<MTLComputePipelineState> newCmdDrawIndirectCopyZeroDivisorVertexBuffersMTLComputePipelineState(MVKVulkanAPIDeviceObject* owner);
 
@@ -401,6 +404,7 @@ protected:
 	NSString* getMTLFormatTypeString(MTLPixelFormat mtlPixFmt);
     id<MTLFunction> newFunctionNamed(const char* funcName);
 	id<MTLFunction> newMTLFunction(NSString* mslSrcCode, NSString* funcName);
+	id<MTLComputePipelineState> newMTLComputePipelineState(id<MTLFunction> mtlFunc, MVKVulkanAPIDeviceObject* owner);
 	id<MTLRenderPipelineState> newMTLRenderPipelineState(MTLRenderPipelineDescriptor* plDesc,
 														 MVKVulkanAPIDeviceObject* owner);
 	id<MTLComputePipelineState> newMTLComputePipelineState(const char* funcName,

@@ -350,3 +350,11 @@ void mvkSetConfig(MVKConfiguration& dstMVKConfig, const MVKConfiguration& srcMVK
 #ifndef MVK_CONFIG_LIVE_CHECK_ALL_RESOURCES
 #   define MVK_CONFIG_LIVE_CHECK_ALL_RESOURCES 0
 #endif
+
+/**
+ * Encode vkCmdDraw[Indexed]IndirectCount() into a Metal indirect command buffer on the GPU,
+ * so only the draws within the GPU-side draw count are encoded and executed. Disabled by default.
+ */
+#ifndef MVK_CONFIG_USE_ICB_FOR_DRAW_INDIRECT_COUNT
+#   define MVK_CONFIG_USE_ICB_FOR_DRAW_INDIRECT_COUNT 0
+#endif

@@ -548,3 +548,58 @@ kernel void convertUint8IndicesRaw(device uint8_t* src [[ buffer(0) ]],
 	dst[pos] = idx;
 }
 )";
+
+
+/**
+ * MSL source code for encoding vkCmdDraw[Indexed]IndirectCount() into a Metal indirect command buffer.
+ * This is kept separate from the other command shaders, because it requires Metal 3, and is compiled only when used.
+ */
+static NSString* _MVKDrawIndirectCountEncodeICBShaderSource = @R"(
+#include <metal_stdlib>
+using namespace metal;
+
+typedef struct {
+	command_buffer icb;
+} MVKICBContainer;
+
+typedef struct {
+	uint32_t srcStride;
+	uint32_t maxDrawCount;
+	uint32_t primitiveType;
+	uint32_t indexType;		// 0 = not indexed, 1 = 16-bit indices, 2 = 32-bit indices
+} MVKDrawIndirectCountICBParams;
+
+// Encodes the draws within the draw count from a Vulkan indirect buffer into an indirect command
+// buffer, and the number of encoded draws into the execution range used to execute it.
+kernel void cmdDrawIndirectCountEncodeICB(const device char* srcBuff [[buffer(0)]],
+                                          const device uint32_t* countBuff [[buffer(1)]],
+                                          const device char* indexBuff [[buffer(2)]],
+                                          constant MVKICBContainer& icbContainer [[buffer(3)]],
+                                          device MTLIndirectCommandBufferExecutionRange& execRange [[buffer(4)]],
+                                          const device MVKDrawIndirectCountICBParams& params [[buffer(5)]],
+                                          uint idx [[thread_position_in_grid]]) {
+	uint32_t drawCount = min(countBuff[0], params.maxDrawCount);
+	if (idx == 0) {
+		execRange.location = 0;
+		execRange.length = drawCount;
+	}
+	if (idx >= drawCount) { return; }
+
+	render_command cmd(icbContainer.icb, idx);
+	primitive_type primType = primitive_type(params.primitiveType);
+	const device char* src = srcBuff + idx * params.srcStride;
+	if (params.indexType == 0) {
+		const device auto& args = *reinterpret_cast<const device MTLDrawPrimitivesIndirectArguments*>(src);
+		cmd.draw_primitives(primType, args.vertexStart, args.vertexCount, args.instanceCount, args.baseInstance);
+	} else {
+		const device auto& args = *reinterpret_cast<const device MTLDrawIndexedPrimitivesIndirectArguments*>(src);
+		if (params.indexType == 1) {
+			const device ushort* indices = reinterpret_cast<const device ushort*>(indexBuff) + args.indexStart;
+			cmd.draw_indexed_primitives(primType, args.indexCount, indices, args.instanceCount, args.baseVertex, args.baseInstance);
+		} else {
+			const device uint* indices = reinterpret_cast<const device uint*>(indexBuff) + args.indexStart;
+			cmd.draw_indexed_primitives(primType, args.indexCount, indices, args.instanceCount, args.baseVertex, args.baseInstance);
+		}
+	}
+}
+)";

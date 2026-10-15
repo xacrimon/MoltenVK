@@ -650,6 +650,22 @@ In the special case of `VK_SEMAPHORE_TYPE_TIMELINE` semaphores, **MoltenVK** wil
 `MTLSharedEvent`, regardless of the value of this parameter.
 
 ---------------------------------------
+#### MVK_CONFIG_USE_ICB_FOR_DRAW_INDIRECT_COUNT
+
+##### Type: Boolean
+##### Default: `0`
+
+If enabled, `vkCmdDrawIndirectCount()` and `vkCmdDrawIndexedIndirectCount()` are encoded on the GPU into a
+Metal indirect command buffer that only contains the draws within the draw count read from the count buffer.
+Otherwise, MoltenVK encodes `maxDrawCount` Metal draws on the CPU, and disables the ones beyond the draw count.
+This reduces CPU encoding time for applications that use large `maxDrawCount` values.
+
+This is only used on Apple GPUs that support Metal 3, when Metal argument buffers are in use, and only for
+graphics pipelines whose shaders access all textures and samplers through argument buffers, and that do not use
+tessellation, multiview, triangle fans, `gl_DrawID`, or vertex attributes with a zero divisor.
+Other draws use the default behavior.
+
+---------------------------------------
 #### MVK_CONFIG_LIVE_CHECK_ALL_RESOURCES
 
 ##### Type: Boolean

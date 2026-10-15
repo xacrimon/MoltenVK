@@ -1002,10 +1002,24 @@ void MVKGraphicsPipeline::populateRenderingAttachmentInfo(const VkGraphicsPipeli
 id<MTLRenderPipelineState> MVKGraphicsPipeline::getOrCompilePipeline(MTLRenderPipelineDescriptor* plDesc,
 																	 id<MTLRenderPipelineState>& plState) {
 	if ( !plState ) {
-		MVKRenderPipelineCompiler* plc = new MVKRenderPipelineCompiler(this);
-		plState = plc->newMTLRenderPipelineState(plDesc);	// retained
-		plc->destroy();
+		if (plDesc.supportIndirectCommandBuffers) {
+			// Metal does not allow some shaders to be used with indirect command buffers.
+			// If it rejects this pipeline, compile it again without indirect command buffer support.
+			MVKRenderPipelineCompiler* plc = new MVKRenderPipelineCompiler(this, true);
+			plState = plc->newMTLRenderPipelineState(plDesc);	// retained
+			plc->destroy();
+			if ( !plState ) {
+				MVKLogInfo("Compiling render pipeline without indirect command buffer support, because Metal rejected it with support enabled.");
+				plDesc.supportIndirectCommandBuffers = NO;
+			}
+		}
+		if ( !plState ) {
+			MVKRenderPipelineCompiler* plc = new MVKRenderPipelineCompiler(this);
+			plState = plc->newMTLRenderPipelineState(plDesc);	// retained
+			plc->destroy();
+		}
 		if ( !plState ) { _hasValidMTLPipelineStates = false; }
+		_supportsICBDrawIndirectCount = plState && plDesc.supportIndirectCommandBuffers;
 	}
 	return plState;
 }
@@ -1169,6 +1183,23 @@ void MVKGraphicsPipeline::initMTLRenderPipelineState(const VkGraphicsPipelineCre
 	}
 }
 
+// Returns whether the bind script binds any textures or samplers directly to the Metal encoder.
+static bool bindsTexturesOrSamplersDirectly(const MVKPipelineBindScript& script) {
+	for (auto& op : script.ops) {
+		switch (op.opcode) {
+			case MVKDescriptorBindOperationCode::BindTexture:
+			case MVKDescriptorBindOperationCode::BindSampler:
+			case MVKDescriptorBindOperationCode::BindImmutableSampler:
+			case MVKDescriptorBindOperationCode::BindTextureWithLiveCheck:
+			case MVKDescriptorBindOperationCode::BindSamplerWithLiveCheck:
+				return true;
+			default:
+				break;
+		}
+	}
+	return false;
+}
+
 // Returns a retained MTLRenderPipelineDescriptor constructed from this instance, or nil if an error occurs.
 // It is the responsibility of the caller to release the returned descriptor.
 MTLRenderPipelineDescriptor* MVKGraphicsPipeline::newMTLRenderPipelineDescriptor(const VkGraphicsPipelineCreateInfo* pCreateInfo,
@@ -1201,6 +1232,13 @@ MTLRenderPipelineDescriptor* MVKGraphicsPipeline::newMTLRenderPipelineDescriptor
 
 	// Output
 	addFragmentOutputToPipeline(plDesc, pCreateInfo);
+
+	// Allow draws to be executed from GPU-encoded indirect command buffers for vkCmdDraw[Indexed]IndirectCount().
+	// Commands in indirect command buffers can't access textures or samplers bound directly to the encoder.
+	plDesc.supportIndirectCommandBuffers = (getPhysicalDevice()->canUseICBForDrawIndirectCount() &&
+											!mvkIsMultiview(getRenderingCreateInfo(pCreateInfo)->viewMask) &&
+											!bindsTexturesOrSamplersDirectly(_stageResources[kMVKShaderStageVertex].bindScript) &&
+											!bindsTexturesOrSamplersDirectly(_stageResources[kMVKShaderStageFragment].bindScript));
 
 	// Metal does not allow the name of the pipeline to be changed after it has been created,
 	// and we need to create the Metal pipeline immediately to provide error feedback to app.

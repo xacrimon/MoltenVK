@@ -273,6 +273,9 @@ public:
 	/** Returns the MTLComputePipelineState object for the tessellation control stage of a tessellated draw. */
 	id<MTLComputePipelineState> getTessControlStageState() { return _mtlTessControlStageState; }
 
+	/** Returns whether draws with this pipeline can be executed from a GPU-encoded Metal indirect command buffer. */
+	bool supportsICBDrawIndirectCount() const { return _supportsICBDrawIndirectCount; }
+
 	/** Returns true if the vertex shader needs the draw ID in a buffer. */
 	bool needsDrawIdBuffer() const { return _stageResources[kMVKShaderStageVertex].implicitBuffers.needed.has(MVKImplicitBuffer::DrawId); }
 
@@ -411,6 +414,7 @@ protected:
 	bool _isRasterizing = false;
 	bool _isRasterizingColor = false;
 	bool _isTessellationPipeline = false;
+	bool _supportsICBDrawIndirectCount = false;
 	bool _inputAttachmentIsDSAttachment = false;
 	bool _hasRemappedAttachmentLocations = false;
 };
@@ -550,7 +554,8 @@ public:
 
 #pragma mark Construction
 
-	MVKRenderPipelineCompiler(MVKVulkanAPIDeviceObject* owner) : MVKMetalCompiler(owner) {
+	/** If isQuiet is true, a failed compile returns nil without reporting an error to the owner. */
+	MVKRenderPipelineCompiler(MVKVulkanAPIDeviceObject* owner, bool isQuiet = false) : MVKMetalCompiler(owner), _isQuiet(isQuiet) {
 		_compilerType = "Render pipeline";
 		_pPerformanceTracker = &getPerformanceStats().shaderCompilation.pipelineCompile;
 	}
@@ -559,6 +564,9 @@ public:
 
 protected:
 	bool compileComplete(id<MTLRenderPipelineState> pipelineState, NSError *error);
+	void handleError() override { if ( !_isQuiet ) { MVKMetalCompiler::handleError(); } }
+
+	bool _isQuiet;
 
 	id<MTLRenderPipelineState> _mtlRenderPipelineState = nil;
 };

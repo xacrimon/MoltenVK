@@ -593,6 +593,13 @@ id<MTLComputePipelineState> MVKCommandResourceFactory::newCmdDrawIndirectCountCo
 																																																						  : "cmdDrawIndirectCountConvertBuffers", owner);
 }
 
+id<MTLComputePipelineState> MVKCommandResourceFactory::newCmdDrawIndirectCountEncodeICBMTLComputePipelineState(MVKVulkanAPIDeviceObject* owner) {
+	id<MTLFunction> mtlFunc = newMTLFunction(_MVKDrawIndirectCountEncodeICBShaderSource, @"cmdDrawIndirectCountEncodeICB");	// temp retain
+	id<MTLComputePipelineState> cps = mtlFunc ? newMTLComputePipelineState(mtlFunc, owner) : nil;		// retained
+	[mtlFunc release];																					// temp release
+	return cps;
+}
+
 id<MTLComputePipelineState> MVKCommandResourceFactory::newCmdDrawIndirectCopyZeroDivisorVertexBuffersMTLComputePipelineState(MVKVulkanAPIDeviceObject* owner) {
 	return newMTLComputePipelineState("cmdDrawIndirectCopyZeroDivisorVertexBuffers", owner);
 }
@@ -685,6 +692,13 @@ id<MTLRenderPipelineState> MVKCommandResourceFactory::newMTLRenderPipelineState(
 id<MTLComputePipelineState> MVKCommandResourceFactory::newMTLComputePipelineState(const char* funcName,
 																				  MVKVulkanAPIDeviceObject* owner) {
 	id<MTLFunction> mtlFunc = newFunctionNamed(funcName);							// temp retain
+	id<MTLComputePipelineState> cps = newMTLComputePipelineState(mtlFunc, owner);	// retained
+	[mtlFunc release];																// temp release
+    return cps;
+}
+
+id<MTLComputePipelineState> MVKCommandResourceFactory::newMTLComputePipelineState(id<MTLFunction> mtlFunc,
+																				  MVKVulkanAPIDeviceObject* owner) {
 	// Providing a function directly may cause issues with Metal shader validation layer object
 	// management for some reason, so create a temporary pipeline descriptor to provide instead.
 	MTLComputePipelineDescriptor* plDesc = [MTLComputePipelineDescriptor new];		// temp retain
@@ -693,7 +707,6 @@ id<MTLComputePipelineState> MVKCommandResourceFactory::newMTLComputePipelineStat
 	id<MTLComputePipelineState> cps = plc->newMTLComputePipelineState(plDesc);		// retained
 	plc->destroy();
 	[plDesc release];																// temp release
-	[mtlFunc release];																// temp release
     return cps;
 }
 
