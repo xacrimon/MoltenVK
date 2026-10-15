@@ -50,6 +50,7 @@ MVK_PUBLIC_SYMBOL bool SPIRVToMSLConversionOptions::matches(const SPIRVToMSLConv
 	if (memcmp(&mslOptions, &other.mslOptions, sizeof(mslOptions)) != 0) { return false; }
 	if (entryPointStage != other.entryPointStage) { return false; }
 	if (entryPointName != other.entryPointName) { return false; }
+	if (entryPointNameSuffix != other.entryPointNameSuffix) { return false; }
 	if (tessPatchKind != other.tessPatchKind) { return false; }
 	if (numTessControlPoints != other.numTessControlPoints) { return false; }
 	if (shouldFlipVertexY != other.shouldFlipVertexY) { return false; }
@@ -289,6 +290,11 @@ MVK_PUBLIC_SYMBOL bool SPIRVToMSLConverter::convert(SPIRVToMSLConversionConfigur
 
 		if (shaderConfig.options.hasEntryPoint()) {
 			pMSLCompiler->set_entry_point(shaderConfig.options.entryPointName, shaderConfig.options.entryPointStage);
+			if ( !shaderConfig.options.entryPointNameSuffix.empty() ) {
+				pMSLCompiler->rename_entry_point(shaderConfig.options.entryPointName,
+												 shaderConfig.options.entryPointName + shaderConfig.options.entryPointNameSuffix,
+												 shaderConfig.options.entryPointStage);
+			}
 		}
 
 		// Set up tessellation parameters if needed.
@@ -541,7 +547,7 @@ void SPIRVToMSLConverter::populateEntryPoint(CompilerMSL* pMSLCompiler,
 
 	SPIREntryPoint spvEP;
 	if (options.hasEntryPoint()) {
-		spvEP = pMSLCompiler->get_entry_point(options.entryPointName, options.entryPointStage);
+		spvEP = pMSLCompiler->get_entry_point(options.entryPointName + options.entryPointNameSuffix, options.entryPointStage);
 	} else {
 		const auto& entryPoints = pMSLCompiler->get_entry_points_and_stages();
 		if ( !entryPoints.empty() ) {

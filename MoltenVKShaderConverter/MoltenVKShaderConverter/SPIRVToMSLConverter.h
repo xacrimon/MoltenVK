@@ -40,6 +40,7 @@ namespace mvk {
 	typedef struct SPIRVToMSLConversionOptions {
 		SPIRV_CROSS_NAMESPACE::CompilerMSL::Options mslOptions;
 		std::string entryPointName;
+		std::string entryPointNameSuffix;	/**< If not empty, appended to the MSL function name (e.g. to tell shaders apart in GPU tools). */
 		spv::ExecutionModel entryPointStage = spv::ExecutionModelMax;
 		spv::ExecutionMode tessPatchKind = spv::ExecutionModeMax;
 		uint32_t numTessControlPoints = 0;

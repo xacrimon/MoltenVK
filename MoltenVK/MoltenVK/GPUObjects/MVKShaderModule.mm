@@ -399,6 +399,16 @@ MVKMTLFunction MVKShaderModule::getMTLFunction(SPIRVToMSLConversionConfiguration
 											   VkPipelineCreationFeedback* pShaderFeedback) {
 	MVKShaderLibrary* mvkLib = _directMSLLibrary;
 	if ( !mvkLib ) {
+		// When dumping shaders, suffix the MSL function name with the same hash used in the dump
+		// file names, so shaders shown in GPU tools (Instruments, Xcode) can be matched to the dump.
+		const char* dumpDir = getMVKConfig().shaderDumpDir;
+		if (dumpDir && *dumpDir) {
+			char suffix[24];
+			snprintf(suffix, sizeof(suffix), "_%016zx", _key.codeHash);
+			pShaderConfig->options.entryPointNameSuffix = suffix;
+		} else {
+			pShaderConfig->options.entryPointNameSuffix.clear();
+		}
 		uint64_t startTime = pShaderFeedback ? mvkGetTimestamp() : getPerformanceTimestamp();
 		MVKPipelineCache* pipelineCache = pipeline->getPipelineCache();
 		if (pipelineCache) {
