@@ -46,6 +46,7 @@ namespace mvk {
 		uint32_t numTessControlPoints = 0;
 		bool shouldFlipVertexY = true;
 		bool shouldFixupClipSpace = false;
+		bool shouldIgnoreFloatControls = false;	/**< If true, ignore SPIR-V float controls and NoContraction, so all float math can use fast math. */
 
 		/**
 		 * Returns whether the specified options match this one.
@@ -320,6 +321,7 @@ namespace mvk {
 		bool validateSPIRV();
 		void writeSPIRVToFile(std::string spvFilepath, std::string& log);
 		void populateWorkgroupDimension(SPIRVWorkgroupSizeDimension& wgDim, uint32_t size, SPIRV_CROSS_NAMESPACE::SpecializationConstant& spvSpecConst);
+		void ignoreFloatControls(SPIRV_CROSS_NAMESPACE::CompilerMSL* pMSLCompiler, SPIRVToMSLConversionOptions& options);
 		void populateEntryPoint(SPIRV_CROSS_NAMESPACE::CompilerMSL* pMSLCompiler, SPIRVToMSLConversionOptions& options, SPIRVEntryPoint& entryPoint);
 		bool usesPhysicalStorageBufferAddressesCapability(SPIRV_CROSS_NAMESPACE::Compiler* pCompiler);
 		void populateSpecializationMacros(SPIRV_CROSS_NAMESPACE::CompilerMSL* pMSLCompiler, std::map<uint32_t, MSLSpecializationMacroInfo>& specializationMacros);

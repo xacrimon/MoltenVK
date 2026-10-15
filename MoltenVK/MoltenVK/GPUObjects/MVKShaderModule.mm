@@ -409,6 +409,8 @@ MVKMTLFunction MVKShaderModule::getMTLFunction(SPIRVToMSLConversionConfiguration
 		} else {
 			pShaderConfig->options.entryPointNameSuffix.clear();
 		}
+		// When fast math is forced, ignore any float controls in the shader that would prevent it.
+		pShaderConfig->options.shouldIgnoreFloatControls = (getMVKConfig().fastMathEnabled == MVK_CONFIG_FAST_MATH_ALWAYS);
 		uint64_t startTime = pShaderFeedback ? mvkGetTimestamp() : getPerformanceTimestamp();
 		MVKPipelineCache* pipelineCache = pipeline->getPipelineCache();
 		if (pipelineCache) {

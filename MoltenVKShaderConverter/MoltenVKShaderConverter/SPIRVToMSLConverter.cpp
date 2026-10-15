@@ -55,6 +55,7 @@ MVK_PUBLIC_SYMBOL bool SPIRVToMSLConversionOptions::matches(const SPIRVToMSLConv
 	if (numTessControlPoints != other.numTessControlPoints) { return false; }
 	if (shouldFlipVertexY != other.shouldFlipVertexY) { return false; }
 	if (shouldFixupClipSpace != other.shouldFixupClipSpace) { return false; }
+	if (shouldIgnoreFloatControls != other.shouldIgnoreFloatControls) { return false; }
 	return true;
 }
 
@@ -294,6 +295,9 @@ MVK_PUBLIC_SYMBOL bool SPIRVToMSLConverter::convert(SPIRVToMSLConversionConfigur
 				pMSLCompiler->rename_entry_point(shaderConfig.options.entryPointName,
 												 shaderConfig.options.entryPointName + shaderConfig.options.entryPointNameSuffix,
 												 shaderConfig.options.entryPointStage);
+			}
+			if (shaderConfig.options.shouldIgnoreFloatControls) {
+				ignoreFloatControls(pMSLCompiler, shaderConfig.options);
 			}
 		}
 
@@ -536,6 +540,30 @@ void SPIRVToMSLConverter::populateWorkgroupDimension(SPIRVWorkgroupSizeDimension
 	wgDim.size = max(size, 1u);
 	wgDim.isSpecialized = (uint32_t(spvSpecConst.id) != 0);
 	wgDim.specializationID = spvSpecConst.constant_id;
+}
+
+// Removes the SPIR-V float controls execution modes, and the NoContraction and FPFastMathMode decorations,
+// so that SPIRV-Cross does not emit precise math functions or contraction-preventing helper functions,
+// and the shader can be compiled with full fast math.
+void SPIRVToMSLConverter::ignoreFloatControls(CompilerMSL* pMSLCompiler, SPIRVToMSLConversionOptions& options) {
+	auto& ep = pMSLCompiler->get_entry_point(options.entryPointName + options.entryPointNameSuffix, options.entryPointStage);
+	ep.signed_zero_inf_nan_preserve_8 = false;
+	ep.signed_zero_inf_nan_preserve_16 = false;
+	ep.signed_zero_inf_nan_preserve_32 = false;
+	ep.signed_zero_inf_nan_preserve_64 = false;
+	ep.fp_fast_math_defaults.clear();
+	ep.flags.clear(ExecutionModeSignedZeroInfNanPreserve);
+	ep.flags.clear(ExecutionModeFPFastMathDefault);
+
+	uint32_t idBound = pMSLCompiler->get_current_id_bound();
+	for (uint32_t id = 1; id < idBound; id++) {
+		if (pMSLCompiler->has_decoration(id, DecorationNoContraction)) {
+			pMSLCompiler->unset_decoration(id, DecorationNoContraction);
+		}
+		if (pMSLCompiler->has_decoration(id, DecorationFPFastMathMode)) {
+			pMSLCompiler->unset_decoration(id, DecorationFPFastMathMode);
+		}
+	}
 }
 
 // Populates the entry point with info extracted from the SPRI-V compiler.

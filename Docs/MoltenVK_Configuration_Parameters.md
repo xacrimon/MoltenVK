@@ -202,7 +202,9 @@ This can be enabled for publicity during demos.
 
 ##### Type: Enumeration
 - `0`: _Metal_ shaders will never be compiled with the fast math option.
-- `1`: _Metal_ shaders will always be compiled with the fast math option.
+- `1`: _Metal_ shaders will always be compiled with the fast math option. SPIR-V float controls in the shader
+  (`SignedZeroInfNanPreserve`, `FPFastMathDefault`, `FPFastMathMode`) and `NoContraction` decorations are ignored,
+  so they do not cause precise math functions or contraction-preventing operations to be used in the _Metal_ shader.
 - `2`: _Metal_ shaders will be compiled with the fast math option. However, each shader can
   limit the types of fast-math used, through the `VK_KHR_shader_float_controls2` extension, 
   or by enabling execution capabilities, such as `SignedZeroInfNanPreserve` or `ContractionOff`.
