@@ -433,6 +433,7 @@ void MVKCommandEncoder::beginEncoding(id<MTLCommandBuffer> mtlCmdBuff, MVKComman
     _canUseLayeredRendering = false;
 
     _mtlCmdBuffer = mtlCmdBuff;        // not retained
+	mvkClear(_indirectTessScratchMTLBuffers, kMVKIndirectTessScratchBufferCount);
 
 	_cmdBuffer->setMetalObjectLabel(_mtlCmdBuffer, _cmdBuffer->_debugName);
 }
@@ -1197,6 +1198,12 @@ const MVKMTLBufferAllocation* MVKCommandEncoder::getTempMTLBuffer(NSUInteger len
     MVKMTLBufferAllocation* mtlBuffAlloc = getCommandEncodingPool()->acquireMTLBufferAllocation(length, isPrivate, isDedicated);
     [_mtlCmdBuffer addCompletedHandler: ^(id<MTLCommandBuffer> mcb) { mtlBuffAlloc->returnToPool(); }];
     return mtlBuffAlloc;
+}
+
+const MVKMTLBufferAllocation* MVKCommandEncoder::getIndirectTessScratchMTLBuffer(MVKIndirectTessScratchBuffer scratchBuffer, NSUInteger length) {
+	const MVKMTLBufferAllocation*& mtlBuffAlloc = _indirectTessScratchMTLBuffers[scratchBuffer];
+	if ( !mtlBuffAlloc || mtlBuffAlloc->_length < length ) { mtlBuffAlloc = getTempMTLBuffer(length, true); }
+	return mtlBuffAlloc;
 }
 
 MVKCommandEncodingPool* MVKCommandEncoder::getCommandEncodingPool() {

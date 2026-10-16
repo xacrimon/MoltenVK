@@ -237,6 +237,16 @@ protected:
 /*** Holds a collection of active queries for each query pool. */
 typedef std::unordered_map<MVKQueryPool*, MVKSmallVector<uint32_t, kMVKDefaultQueryCount>> MVKActivatedQueries;
 
+/** Identifies the scratch buffers shared by the indirect tessellated draws in a Metal command buffer. */
+typedef enum : uint8_t {
+	kMVKIndirectTessScratchBufferVertexOutput,
+	kMVKIndirectTessScratchBufferTessCtlOutput,
+	kMVKIndirectTessScratchBufferTessCtlPatchOutput,
+	kMVKIndirectTessScratchBufferTessLevel,
+	kMVKIndirectTessScratchBufferIndex,
+	kMVKIndirectTessScratchBufferCount
+} MVKIndirectTessScratchBuffer;
+
 /** 
  * MVKCommandEncoder uses a visitor design pattern iterate the commands in a MVKCommandBuffer, 
  * tracking and caching dynamic encoding state, and encoding the commands onto Metal MTLCommandBuffers.
@@ -441,6 +451,15 @@ public:
 	/** Copy the bytes to a temporary MTLBuffer that will be returned to a pool after the command buffer is finished. */
 	const MVKMTLBufferAllocation* copyToTempMTLBufferAllocation(const void* bytes, NSUInteger length, bool isDedicated = false);
 
+	/**
+	 * Returns a temporary private MTLBuffer of at least the specified length for the specified scratch use, which is
+	 * shared by all indirect tessellated draws encoded into the current Metal command buffer. Such draws must size
+	 * their intermediate buffers for a worst-case vertex count, so allocating them for each draw can exhaust memory.
+	 * Reuse is safe because these buffers are hazard-tracked by Metal, so a later draw that overwrites them waits
+	 * for earlier draws that read them, just as successive draws of a single multi-draw indirect command do.
+	 */
+	const MVKMTLBufferAllocation* getIndirectTessScratchMTLBuffer(MVKIndirectTessScratchBuffer scratchBuffer, NSUInteger length);
+
     /** Returns the command encoding pool. */
     MVKCommandEncodingPool* getCommandEncodingPool();
 
@@ -555,6 +574,7 @@ protected:
 	MVKCommandUse _mtlBlitEncoderUse;
 	bool _isRenderingEntireAttachment;
 	bool _hasMTLRenderEncoderVisibilityResultBuffer;
+	const MVKMTLBufferAllocation* _indirectTessScratchMTLBuffers[kMVKIndirectTessScratchBufferCount] = {};
 };
 
 
